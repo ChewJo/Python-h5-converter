@@ -39,7 +39,7 @@ def processed_file_exists(key, output_folder):
 
     return os.path.exists(grey) or os.path.exists(colour)
 
-def process_until_caught_up(output_folder, colour=False, stop_on_catchup=True):
+def process_until_caught_up(output_folder, colour=False, stop_on_catchup=True, upload_to_s3=False):
     print("Starting catch-up processor...")
 
     os.makedirs('temp_h5', exist_ok=True)
@@ -96,16 +96,27 @@ def process_until_caught_up(output_folder, colour=False, stop_on_catchup=True):
                         output_filename=output_filename
                     )
 
-    if not any_new_files:
-        print("No unprocessed files found at all – fully up to date.")
-    else:
+                    # Only upload if just processed and not temp_output.tif
+                    if upload_to_s3 and output_filename != "temp_output.tif":
+                        from test import upload_file
+                        name_part = base_name
+                        year = name_part[:4]
+                        month = name_part[4:6]
+                        day = name_part[6:8]
+                        s3_key = f"TEST/Radar/{year}/{month}/{day}/{output_filename}"
+                        upload_file(os.path.join(output_folder, output_filename), "metoffice-weather-data", s3_key)
+
+    if any_new_files:
         print("Reached end of available historical data.")
+    else:
+        print("No unprocessed files found at all – fully up to date.")
 
 if __name__ == "__main__":
     output_folder = "output/cog"
 
     process_until_caught_up(
         output_folder,
-        colour=False,
-        stop_on_catchup=False
+        colour=True,
+        stop_on_catchup=False,
+        upload_to_s3=True
     )
